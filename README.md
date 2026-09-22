@@ -20,14 +20,14 @@ Métodos(CRUD):
 
 -cadastrar (POST - "api/tarefas") <br>
 	Parâmetros <br>
-		@RequestBody TarefaDto tarefaDto - Dados da tarefa para cadastrar
+		@RequestBody TarefaDto tarefaRequest - Dados da tarefa para cadastrar
 	
 	Retorna status 200 (OK) com o cadastro da tarefa
 
 -atualizar (PUT - "api/tarefas/{id}") <br>
 	Parâmetros <br>
 		@PathVariable Integer id - ID da tarefa para a atualização <br>
-		@RequestBody TarefaDto tarefaDto - Dados da tarefa atualizado
+		@RequestBody TarefaDto tarefaRequest - Dados da tarefa atualizado
 		
 	Retorna status 200 (OK) caso atualização ocorreu corretamente ou então 404 (Not Found) caso não tenha sido encontrado uma tarefa com aquele ID	
 

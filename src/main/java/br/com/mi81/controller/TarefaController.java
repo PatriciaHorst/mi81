@@ -1,21 +1,32 @@
 package br.com.mi81.controller;
 
-import br.com.mi81.dto.TarefaDto;
+import br.com.mi81.dto.TarefaRequest;
+import br.com.mi81.dto.TarefaRequestUpdate;
+import br.com.mi81.dto.TarefaResponse;
+import br.com.mi81.enums.StatusTarefa;
+import br.com.mi81.mapper.TarefaMapper;
 import br.com.mi81.model.Tarefa;
 import br.com.mi81.repository.TarefaRepository;
+import br.com.mi81.service.TarefaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/tarefas")
 public class TarefaController{
 
-    private TarefaRepository tarefaRepository = new TarefaRepository();
+    private final TarefaService service;
+
+    public TarefaController(TarefaService service, TarefaRepository tarefaRepository, TarefaMapper tarefaMapper) {
+        this.service = service;
+    }
 
     /**
      * Lista todas as tarefas cadastradas
@@ -26,8 +37,15 @@ public class TarefaController{
     @Tag(name = "GET", description = "Retorna tarefas cadastradas")
     @Operation(summary = "Listar tarefas", description = "Lista todas as tarefas cadastradas")
     @GetMapping
-    public ResponseEntity<List<Tarefa>> listar(){
-        return ResponseEntity.ok(tarefaRepository.listarTarefas());
+    public ResponseEntity<List<TarefaResponse>> listar(){
+        return ResponseEntity.ok(service.listar());
+    }
+
+    @Tag(name = "GET", description = "Retorna tarefas cadastradas")
+    @Operation(summary = "Listar tarefas", description = "Lista todas as tarefas cadastradas")
+    @GetMapping("/filtrar")
+    public ResponseEntity<List<TarefaResponse>> listarPorStatus(@RequestParam StatusTarefa status){
+         return ResponseEntity.ok(service.listarPorStatus(status));
     }
 
     /**
@@ -38,60 +56,40 @@ public class TarefaController{
     @Tag(name = "GET", description = "Retorna tarefas cadastradas")
     @Operation(summary = "Buscar tarefas", description = "Busca a tarefas cadastradas")
     @GetMapping("/{id}")
-    public ResponseEntity<Tarefa> buscar(@PathVariable Integer id){
-        Tarefa tarefa = tarefaRepository.buscarTarefa(id);
-
-        if (tarefa == null) {
-            return ResponseEntity.notFound().build();
-        } else {
-            return ResponseEntity.ok(tarefa);
-        }
+    public ResponseEntity<TarefaResponse> buscar(@PathVariable Integer id){
+        return ResponseEntity.ok(service.buscar(id));
     }
 
     /**
      * Cadastra uma nova tarefa
-     * @param tarefaDto Recebe atributos da tarefa para cadastro
+     * @param request Recebe atributos da tarefa para cadastro
      * @return Retorna status 201 (CREATED)
      */
     @Tag(name = "POST", description = "Adiciona uma tarefa ao banco")
     @Operation(summary = "Cadastrar Tarefa", description = "Adiciona uma tarefa na lista")
     @PostMapping
-    public ResponseEntity<Void> cadastrar(@RequestBody TarefaDto tarefaDto){
+    public ResponseEntity<TarefaResponse> cadastrar(@RequestBody TarefaRequest request){
+        TarefaResponse tarefa = service.cadastrar(request);
 
-        Tarefa tarefa = new Tarefa();
+        URI uri = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(tarefa.id())
+                .toUri();
 
-        tarefa.setTitulo(tarefaDto.titulo());
-        tarefa.setDescricao(tarefaDto.descricao());
-        tarefa.setPrioridade(tarefaDto.prioridade());
-
-        tarefaRepository.cadastrar(tarefa);
-
-        return ResponseEntity.status(201).build();
+        return ResponseEntity.created(uri).body(tarefa);
     }
 
     /**
      * Atualiza os atributos de uma tarefa
      * @param id ID da tarefa para atualizar
-     * @param tarefaDto Atributos atualizados inseridos pelo usuário
+     * @param request Atributos atualizados inseridos pelo usuário
      * @return Caso a atualização ocorra com sucesso, retorna status 200 (OK), caso contrário 404 (Not Found)
      */
     @Tag(name = "PUT", description = "Atualiza uma tarefa do banco")
     @Operation(summary = "Atualizar Tarefa", description = "Atualiza uma tarefa da lista pelo ID")
     @PutMapping("/{id}")
-    public ResponseEntity<Tarefa> atualizar(@PathVariable Integer id ,@RequestBody TarefaDto tarefaDto){
-        Tarefa tarefa = new Tarefa();
-
-        tarefa.setTitulo(tarefaDto.titulo());
-        tarefa.setDescricao(tarefaDto.descricao());
-        tarefa.setPrioridade(tarefaDto.prioridade());
-
-        Boolean atualizado = tarefaRepository.atualizar(id, tarefa);
-
-        if(atualizado){
-            return ResponseEntity.ok().build();
-        }
-
-        return ResponseEntity.notFound().build();
+    public ResponseEntity<TarefaResponse> atualizar(@PathVariable Integer id ,@RequestBody TarefaRequestUpdate request){
+        return ResponseEntity.ok(service.atualizar(id, request));
     }
 
     /**
@@ -102,14 +100,8 @@ public class TarefaController{
     @Tag(name = "PATCH", description = "Atualiza parcialmente uma tarefa do banco")
     @Operation(summary = "Concluir Tarefa", description = "Atualiza o atributo status para true de uma tarefa da lista pelo ID")
     @PatchMapping("/{id}/concluir")
-    public ResponseEntity<Void> concluir(@PathVariable Integer id) {
-        Boolean concluido = tarefaRepository.concluir(id);
-
-        if (concluido) {
-            return ResponseEntity.status(200).build();
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<TarefaResponse> concluir(@PathVariable Integer id) {
+        return ResponseEntity.ok(service.concluir(id));
     }
 
     /**
@@ -121,12 +113,7 @@ public class TarefaController{
     @Operation(summary = "Excluir Tarefa", description = "Exclui uma tarefa da lista pelo ID")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> excluir(@PathVariable Integer id){
-        Boolean excluido = tarefaRepository.excluir(id);
-
-        if(excluido) {
-            return ResponseEntity.noContent().build();
-        }else{
-            return ResponseEntity.notFound().build();
-        }
+        service.excluir(id);
+        return ResponseEntity.noContent().build();
     }
 }
